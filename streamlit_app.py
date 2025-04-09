@@ -1,52 +1,51 @@
 # Import python packages
 import streamlit as st
-import requests
-
-# Write directly to the app
-st.title("Customize Your Smoothie!:cup_with_straw:")
-st.write("Choose the fruits you want in your custom Smoothie!")
-
+import pandas as pd
 from snowflake.snowpark.functions import col
 
+# Connect to Snowflake
 cnx = st.connection("snowflake")
 session = cnx.session()
 
-my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-st.dataframe(data=my_dataframe, use_container_width=True)
-st.stop()
+# App title
+st.title("🍹 Smoothie Order System")
+st.write("Create custom smoothie orders below")
 
-ingredients_list = st.multiselect(
-    "Choose up to 5 ingredients:",
-    my_dataframe
-)
-
-# Initialize ingredients_string outside the if block
-ingredients_string = ''
-
-if ingredients_list:
-    for fruit_chosen in ingredients_list:
-        ingredients_string += fruit_chosen + ' '
-        st.subheader(fruit_chosen + ' Nutrition Information')
-        try:
-            smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/" + fruit_chosen)
-            smoothiefroot_response.raise_for_status()  # Check for HTTP errors
-            sf_df = st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error fetching nutrition data for {fruit_chosen}: {e}")
-
-# Prepare the SQL statement (now safe because ingredients_string exists)
-if ingredients_string.strip():  # Only proceed if not empty
-    my_insert_stmt = """INSERT INTO smoothies.public.orders(ingredients)
-            VALUES ('""" + ingredients_string.strip() + """')"""
+# Section 1: Kevin's Order (Not Filled)
+with st.expander("Kevin's Order (Apples, Lime, Ximenia)"):
+    fruits = ['Apple', 'Lime', 'Ximenia']
+    st.write("Creating order for Kevin with:", ", ".join(fruits))
     
-    time_to_insert = st.button('Submit Order')
-    
-    if time_to_insert:
-        try:
-            session.sql(my_insert_stmt).collect()
-            st.success('Your Smoothie is ordered!', icon="✅")
-        except Exception as e:
-            st.error(f"Error submitting order: {e}")
-else:
-    st.warning("Please select at least one ingredient to order")
+    if st.button("Create Kevin's Order"):
+        insert_stmt = f"""
+        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
+        VALUES ('{" ".join(fruits)}', 'Kevin', FALSE)
+        """
+        session.sql(insert_stmt).collect()
+        st.success("Kevin's order created (not filled)")
 
+# Section 2: Divya's Order (Filled)
+with st.expander("Divya's Order (Dragon Fruit, Guava, Figs, Jackfruit, Blueberries)"):
+    fruits = ['Dragon Fruit', 'Guava', 'Figs', 'Jackfruit', 'Blueberries']
+    st.write("Creating order for Divya with:", ", ".join(fruits))
+    
+    if st.button("Create Divya's Order"):
+        insert_stmt = f"""
+        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
+        VALUES ('{" ".join(fruits)}', 'Divya', TRUE)
+        """
+        session.sql(insert_stmt).collect()
+        st.success("Divya's order created and marked filled")
+
+# Section 3: Xi's Order (Filled)
+with st.expander("Xi's Order (Vanilla Fruit, Nectarine)"):
+    fruits = ['Vanilla Fruit', 'Nectarine']
+    st.write("Creating order for Xi with:", ", ".join(fruits))
+    
+    if st.button("Create Xi's Order"):
+        insert_stmt = f"""
+        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
+        VALUES ('{" ".join(fruits)}', 'Xi', TRUE)
+        """
+        session.sql(insert_stmt).collect()
+        st.success("Xi's order created and marked filled")
