@@ -1,51 +1,77 @@
-# Import python packages
+# Importar paquetes Python
 import streamlit as st
 import pandas as pd
 from snowflake.snowpark.functions import col
+from datetime import datetime
 
-# Connect to Snowflake
+# Conexión a Snowflake
 cnx = st.connection("snowflake")
 session = cnx.session()
 
-# App title
-st.title("🍹 Smoothie Order System")
-st.write("Create custom smoothie orders below")
+# Título de la aplicación
+st.title("🍹 Sistema de Pedidos de Smoothies")
+st.write("Crea pedidos personalizados de smoothies")
 
-# Section 1: Kevin's Order (Not Filled)
-with st.expander("Kevin's Order (Apples, Lime, Ximenia)"):
+# Función para crear pedidos
+def create_order(customer_name, fruits, is_filled=False):
+    ingredients_str = ' '.join(fruits)
+    
+    insert_stmt = f"""
+    INSERT INTO smoothies.public.orders(
+        NAME_ON_ORDER,
+        INGREDIENTS,
+        ORDER_FILLED,
+        ORDER_TS
+    ) VALUES (
+        '{customer_name}',
+        '{ingredients_str}',
+        {is_filled},
+        CURRENT_TIMESTAMP()
+    )
+    """
+    session.sql(insert_stmt).collect()
+    return True
+
+# Sección 1: Pedido de Kevin (No completado)
+with st.expander("Pedido de Kevin (Manzana, Lima, Ximenia)"):
     fruits = ['Apple', 'Lime', 'Ximenia']
-    st.write("Creating order for Kevin with:", ", ".join(fruits))
+    st.write("Creando pedido para Kevin con:", ", ".join(fruits))
     
-    if st.button("Create Kevin's Order"):
-        insert_stmt = f"""
-        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
-        VALUES ('{" ".join(fruits)}', 'Kevin', FALSE)
-        """
-        session.sql(insert_stmt).collect()
-        st.success("Kevin's order created (not filled)")
+    if st.button("Crear Pedido de Kevin"):
+        if create_order("Kevin", fruits, is_filled=False):
+            st.success("✅ Pedido de Kevin creado (no completado)")
 
-# Section 2: Divya's Order (Filled)
-with st.expander("Divya's Order (Dragon Fruit, Guava, Figs, Jackfruit, Blueberries)"):
+# Sección 2: Pedido de Divya (Completado)
+with st.expander("Pedido de Divya (Fruta del Dragón, Guayaba, Higos, Jackfruit, Arándanos)"):
     fruits = ['Dragon Fruit', 'Guava', 'Figs', 'Jackfruit', 'Blueberries']
-    st.write("Creating order for Divya with:", ", ".join(fruits))
+    st.write("Creando pedido para Divya con:", ", ".join(fruits))
     
-    if st.button("Create Divya's Order"):
-        insert_stmt = f"""
-        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
-        VALUES ('{" ".join(fruits)}', 'Divya', TRUE)
-        """
-        session.sql(insert_stmt).collect()
-        st.success("Divya's order created and marked filled")
+    if st.button("Crear Pedido de Divya"):
+        if create_order("Divya", fruits, is_filled=True):
+            st.success("✅ Pedido de Divya creado y marcado como completado")
 
-# Section 3: Xi's Order (Filled)
-with st.expander("Xi's Order (Vanilla Fruit, Nectarine)"):
+# Sección 3: Pedido de Xi (Completado)
+with st.expander("Pedido de Xi (Fruta Vainilla, Nectarina)"):
     fruits = ['Vanilla Fruit', 'Nectarine']
-    st.write("Creating order for Xi with:", ", ".join(fruits))
+    st.write("Creando pedido para Xi con:", ", ".join(fruits))
     
-    if st.button("Create Xi's Order"):
-        insert_stmt = f"""
-        INSERT INTO smoothies.public.orders(ingredients, customer_name, is_filled)
-        VALUES ('{" ".join(fruits)}', 'Xi', TRUE)
-        """
-        session.sql(insert_stmt).collect()
-        st.success("Xi's order created and marked filled")
+    if st.button("Crear Pedido de Xi"):
+        if create_order("Xi", fruits, is_filled=True):
+            st.success("✅ Pedido de Xi creado y marcado como completado")
+
+# Sección adicional: Crear pedido personalizado
+with st.expander("➕ Crear Nuevo Pedido Personalizado"):
+    custom_name = st.text_input("Nombre del Cliente")
+    fruit_options = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).collect()
+    fruit_list = [row['FRUIT_NAME'] for row in fruit_options]
+    
+    selected_fruits = st.multiselect(
+        "Selecciona frutas para el smoothie",
+        fruit_list
+    )
+    
+    is_filled = st.checkbox("¿Pedido completado?")
+    
+    if st.button("Crear Pedido Personalizado") and custom_name and selected_fruits:
+        if create_order(custom_name, selected_fruits, is_filled):
+            st.success(f"✅ Pedido para {custom_name} creado exitosamente!")
